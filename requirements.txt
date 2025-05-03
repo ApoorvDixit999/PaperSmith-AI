@@ -1,0 +1,9 @@
+fpdf
+google - generativeai
+sentence - transformers
+matplotlib
+streamlit
+requests
+torch
+scikit - learn
+numpy
