@@ -4,7 +4,7 @@ from fpdf import FPDF
 import pathlib
 import os
 from typing import List
-import config  # Your custom configuration for the Google API key
+import config
 from sentence_transformers import SentenceTransformer, util
 import matplotlib.pyplot as plt
 import streamlit as st
@@ -17,59 +17,47 @@ import webbrowser
 import tempfile
 import time
 
-# Initialize the Google AI Client with the API key from config
 client = genai.Client(api_key=config.GOOGLE_API_KEY)
 
-# Load pre-trained semantic similarity model from Sentence Transformers
 semantic_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# Set environment variable to prevent warnings related to tokenizers
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-
 def convert_local_pdf_to_latex_text(pdf_path: str) -> str:
-    """
-    Converts a PDF exam paper into LaTeX-style text containing only the questions and marking scheme.
-    Uses Gemini AI to extract relevant content from the provided PDF.
-    """
     try:
-        # Check if the file exists
         filepath = pathlib.Path(pdf_path)
         if not filepath.exists():
             raise FileNotFoundError(f"File not found: {pdf_path}")
-
-        # Define the prompt that instructs Gemini AI how to process the PDF
         prompt = """
-        You are a university exam paper digitizer.
-        
-        Your task is to extract **only the exam questions and their marking scheme** from this PDF and convert them into a clean, structured LaTeX-style text format.
-        
-        📌 Strict Instructions:
-        1. ❌ Completely ignore:
-            - University or institution names
-            - Semester details, course/subject codes
-            - Exam duration, total marks, dates
-            - Instructions to candidates, headers, footers, or page numbers
-        
-        2. ✅ Focus only on the actual questions **and their marks**:
-            - Include **paper instructions** meant for students (e.g., “Attempt all questions”)
-            - Use **manual numbering** (`Q1.`, `Q2.`, etc.)
-            - Subparts as `(a)`, `(b)`, etc.
-            - Insert `\\textbf{OR}` if applicable
-            - Use LaTeX formatting for math
-            - Use `[\\textbf{Figure or Diagram Here}]` for diagrams
-        
-        3. 📝 Preserve marks exactly as shown
-        
-        4. 🔍 No hallucination, skipping, paraphrasing, or reordering
-        
-        5. 🧱 Preserve the paper’s original structure
-        
-        📄 Output:
-        Return a **clean LaTeX-style multiline string** of only the questions and marking scheme.
-        """
+You are a university exam paper digitizer.
 
-        # Request Gemini AI to process the PDF and generate content
+Your task is to extract **only the exam questions and their marking scheme** from this PDF and convert them into a clean, structured LaTeX-style text format.
+
+📌 Strict Instructions:
+1. ❌ Completely ignore:
+    - University or institution names
+    - Semester details, course/subject codes
+    - Exam duration, total marks, dates
+    - Instructions to candidates, headers, footers, or page numbers
+
+2. ✅ Focus only on the actual questions **and their marks**:
+    - Include **paper instructions** meant for students (e.g., “Attempt all questions”)
+    - Use **manual numbering** (`Q1.`, `Q2.`, etc.)
+    - Subparts as `(a)`, `(b)`, etc.
+    - Insert `\\textbf{OR}` if applicable
+    - Use LaTeX formatting for math
+    - Use `[\\textbf{Figure or Diagram Here}]` for diagrams
+
+3. 📝 Preserve marks exactly as shown
+
+4. 🔍 No hallucination, skipping, paraphrasing, or reordering
+
+5. 🧱 Preserve the paper’s original structure
+
+📄 Output:
+Return a **clean LaTeX-style multiline string** of only the questions and marking scheme.
+"""
+
         response = client.models.generate_content(
             model="gemini-1.5-flash",
             contents=[
@@ -84,22 +72,15 @@ def convert_local_pdf_to_latex_text(pdf_path: str) -> str:
         print(f"[ERROR] Failed to process PDF '{pdf_path}': {e}")
         return ""
 
-
 def process_all_pdfs(folder_path: str) -> List[str]:
-    """
-    Processes all PDFs in a given folder and returns their LaTeX-style extracted text.
-    """
     extracted_texts = []
     if not os.path.exists(folder_path):
         print(f"[ERROR] Folder not found: {folder_path}")
         return extracted_texts
-
-    # List all PDF files in the provided folder path
     pdf_files = [f for f in os.listdir(folder_path) if f.lower().endswith(".pdf")]
     if not pdf_files:
         print(f"[INFO] No PDF files found in: {folder_path}")
         return extracted_texts
-
     for pdf_file in sorted(pdf_files):
         full_path = os.path.join(folder_path, pdf_file)
         print(f"[INFO] Processing: {pdf_file}")
@@ -110,44 +91,38 @@ def process_all_pdfs(folder_path: str) -> List[str]:
             print(f"[WARNING] Skipped {pdf_file} due to processing error.")
     return extracted_texts
 
-
 def generate_new_question_paper(joined_corpus: str) -> str:
-    """
-    Generates a new exam paper based on a combined corpus of previously processed papers.
-    Uses Gemini AI to generate content based on the given prompt and corpus.
-    """
     prompt = f"""
-    You are an AI assistant trained to generate university-level exam question papers.
-    
-    🎯 Your task:
-    
-    Based on the following university-level question papers, generate a new question paper that closely follows their:
-    
-    - Pattern and formatting
-    - Structure and layout
-    - Topic distribution and difficulty
-    - Types of questions asked (theory, numerical, conceptual, etc.)
-    
-    🧠 Guidelines:
-    - Use **Part A, Part B** if present
-    - Include numerical problems in **LaTeX**
-    - Use Markdown for diagrams: `![diagram_label](diagram_description)`
-    - Maintain length, style, and complexity
-    - Infer the subject from previous content
-    - Do NOT repeat questions
-    - Return only the **question paper text**
-    
-    ---
-    
-    === START OF PREVIOUS PAPERS ===
-    {joined_corpus}
-    === END ===
-    
-    Now, generate the new question paper below:
-    """
+You are an AI assistant trained to generate university-level exam question papers.
+
+🎯 Your task:
+
+Based on the following university-level question papers, generate a new question paper that closely follows their:
+
+- Pattern and formatting
+- Structure and layout
+- Topic distribution and difficulty
+- Types of questions asked (theory, numerical, conceptual, etc.)
+
+🧠 Guidelines:
+- Use **Part A, Part B** if present
+- Include numerical problems in **LaTeX**
+- Use Markdown for diagrams: `![diagram_label](diagram_description)`
+- Maintain length, style, and complexity
+- Infer the subject from previous content
+- Do NOT repeat questions
+- Return only the **question paper text**
+
+---
+
+=== START OF PREVIOUS PAPERS ===
+{joined_corpus}
+=== END ===
+
+Now, generate the new question paper below:
+"""
 
     try:
-        # Generate new paper using Gemini AI
         response = client.models.generate_content(
             model="gemini-2.0-flash", contents=[types.Part(text=prompt)]
         )
@@ -156,22 +131,13 @@ def generate_new_question_paper(joined_corpus: str) -> str:
         print(f"[ERROR] Failed to generate new paper: {e}")
         return ""
 
-
 def semantic_similarity(text1: str, text2: str) -> float:
-    """
-    Calculates the semantic similarity between two texts using a pre-trained sentence transformer model.
-    Returns the similarity score as a percentage.
-    """
     embedding1 = semantic_model.encode(text1, convert_to_tensor=True)
     embedding2 = semantic_model.encode(text2, convert_to_tensor=True)
     similarity_score = util.cos_sim(embedding1, embedding2).item()
     return round(similarity_score * 100, 2)
 
-
 def plot_similarity_graph(similarity_scores):
-    """
-    Plots a bar chart displaying the similarity of the generated paper to the previous papers.
-    """
     fig, ax = plt.subplots()
     filenames = list(similarity_scores.keys())
     values = list(similarity_scores.values())
@@ -183,41 +149,35 @@ def plot_similarity_graph(similarity_scores):
     plt.tight_layout()
     return fig
 
-
 def clean_and_format_paper_to_latex(raw_paper_text: str) -> str:
-    """
-    Takes raw question paper text and formats it into clean LaTeX code.
-    Uses Gemini AI for final clean-up and LaTeX formatting.
-    """
     prompt = rf"""
-    You are a LaTeX formatting assistant.
-    
-    Your task is to take the following university-level question paper and convert it into a clean, structured **LaTeX document**, strictly following these rules:
-    
-    📌 **Important Instructions**:
-    
-    1. ✅ Include:
-        - Only the **paper instructions**, **marking scheme**, and **questions**
-        - Proper formatting using `\\section*`, `\\subsection*`, etc., if needed
-        - Use `\\textbf{{}}` or `\\textit{{}}` where appropriate
-        - Mathematical symbols or expressions must be in **LaTeX math mode**
-    
-    2. ❌ Do NOT include:
-        - University name
-        - Term, semester, year, or subject code
-        - Headers, footers, page numbers, or watermarks
-    
-    Now convert the following paper into LaTeX accordingly:
-    
-    === START OF RAW PAPER ===
-    {raw_paper_text}
-    === END ===
-    
-    Return the output as a **standalone LaTeX document**, starting with `\\documentclass` and ending with `\\end{{document}}`.
-    """
+You are a LaTeX formatting assistant.
+
+Your task is to take the following university-level question paper and convert it into a clean, structured **LaTeX document**, strictly following these rules:
+
+📌 **Important Instructions**:
+
+1. ✅ Include:
+    - Only the **paper instructions**, **marking scheme**, and **questions**
+    - Proper formatting using `\\section*`, `\\subsection*`, etc., if needed
+    - Use `\\textbf{{}}` or `\\textit{{}}` where appropriate
+    - Mathematical symbols or expressions must be in **LaTeX math mode**
+
+2. ❌ Do NOT include:
+    - University name
+    - Term, semester, year, or subject code
+    - Headers, footers, page numbers, or watermarks
+
+Now convert the following paper into LaTeX accordingly:
+
+=== START OF RAW PAPER ===
+{raw_paper_text}
+=== END ===
+
+Return the output as a **standalone LaTeX document**, starting with `\\documentclass` and ending with `\\end{{document}}`.
+"""
 
     try:
-        # Generate LaTeX-formatted paper
         response = client.models.generate_content(
             model="gemini-1.5-flash",
             contents=[types.Part(text=prompt)],
@@ -227,38 +187,29 @@ def clean_and_format_paper_to_latex(raw_paper_text: str) -> str:
         print(f"[ERROR] Failed to format paper in LaTeX: {e}")
         return ""
 
-
 def open_latex_in_overleaf(latex_string: str) -> str:
-    """
-    Opens the generated LaTeX code in Overleaf by encoding it in a base64 URL.
-    """
     # Remove enclosing markdown latex block if present
     match = re.search(r"```latex\s*(.*?)\s*```", latex_string, re.DOTALL)
     latex_code = match.group(1).strip() if match else latex_string.strip()
-
     # Base64 encode for URL
     latex_bytes = latex_code.encode("utf-8")
     base64_encoded = base64.b64encode(latex_bytes).decode("utf-8")
     data_uri = f"data:application/x-tex;base64,{base64_encoded}"
     encoded_uri = urllib.parse.quote(data_uri, safe="")
     overleaf_url = f"https://www.overleaf.com/docs?snip_uri={encoded_uri}"
-
     webbrowser.open(overleaf_url)
     return overleaf_url
 
 
-# Streamlit UI and interaction logic
 st.set_page_config(page_title="Question Paper Generator", layout="wide")
 st.title("📄 University Question Paper Generator (AI-powered)")
 
-# Allow users to upload 10 to 20 previous university exam PDFs
 uploaded_files = st.file_uploader(
     "Upload 10 to 20 previous university exam PDFs",
     type=["pdf"],
     accept_multiple_files=True,
 )
 
-# Process and generate the new question paper if files are uploaded
 if uploaded_files:
     if len(uploaded_files) < 10 or len(uploaded_files) > 20:
         st.warning("Please upload at least 10 and at most 20 PDFs.")
